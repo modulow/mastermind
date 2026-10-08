@@ -93,6 +93,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .mindCard.orange { background: var(--orange); }.mindCard.yellow { background: #edb72e; }.mindCard.cyan { background: var(--cyan); color: #123646; }.mindCard.violet { background: var(--violet); }
 .mindCard.project { width: 250px; min-height: 172px; background: #1f1f1f; box-shadow: 0 0 0 7px rgba(51,89,168,.16), var(--shadow); }
 .mindCard.project h3 { font-size: 23px; }
+.wirePort { position: absolute; right: -13px; top: 50%; z-index: 8; width: 26px; height: 26px; padding: 0; border: 2px solid var(--surface); border-radius: 50%; background: var(--yellow); box-shadow: 0 2px 7px rgba(0,0,0,.22); cursor: crosshair; transform: translateY(-50%); }
+.wirePort span { display: block; width: 8px; height: 8px; margin: auto; border-radius: 50%; background: #1f1f1f; }
+.wirePreview { fill: none; stroke: var(--blue-dark); stroke-width: 3; stroke-dasharray: 7 5; pointer-events: none; animation: dashWire .45s linear infinite; }
+.clusterMove { position: absolute !important; right: 8px; top: 5px; width: 30px !important; height: 28px !important; padding: 0 !important; border: 1px solid currentColor !important; background: var(--surface) !important; color: var(--ink) !important; cursor: move !important; z-index: 3; }
+@keyframes dashWire { to { stroke-dashoffset: -24; } }
 .cardDrag { height: 34px; padding: 9px 12px 0; display: flex; justify-content: space-between; cursor: grab; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
 .cardDrag:active { cursor: grabbing; }
 .cardDrag button { border: 0; background: transparent; color: inherit; font-weight: 900; cursor: pointer; letter-spacing: 0; }
