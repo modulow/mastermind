@@ -82,6 +82,8 @@ export default function Mastermind() {
   const [linkDraft, setLinkDraft] = useState({ from: "", to: "", label: "" });
   const [undo, setUndo] = useState<MapState[]>([]);
   const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
+  const [wireDrag, setWireDrag] = useState<{ from: string; x: number; y: number } | null>(null);
+  const [clusterDrag, setClusterDrag] = useState<{ startX: number; startY: number; cards: { id: string; x: number; y: number }[] } | null>(null);
   const [collapsedBranches, setCollapsedBranches] = useState<string[]>([]);
   const [palette, setPalette] = useState<"classic" | "warm" | "forest">("classic");
   const [viewMode, setViewMode] = useState<"mind" | "org" | "list">("mind");
@@ -140,6 +142,45 @@ export default function Mastermind() {
     window.addEventListener("pointerup", up, { once: true });
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
   }, [drag]);
+
+  useEffect(() => {
+    if (!wireDrag) return;
+    const move = (event: PointerEvent) => {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (rect) setWireDrag(value => value ? { ...value, x: event.clientX - rect.left, y: event.clientY - rect.top } : null);
+    };
+    const up = (event: PointerEvent) => {
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-card-id]");
+      const targetId = target?.dataset.cardId;
+      if (targetId && targetId !== wireDrag.from) {
+        setLinkDraft({ from: wireDrag.from, to: targetId, label: "" });
+        setModal("link");
+      }
+      setWireDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [wireDrag]);
+
+  useEffect(() => {
+    if (!clusterDrag) return;
+    const move = (event: PointerEvent) => {
+      const dx = event.clientX - clusterDrag.startX;
+      const dy = event.clientY - clusterDrag.startY;
+      setMap(previous => ({
+        ...previous,
+        cards: previous.cards.map(card => {
+          const origin = clusterDrag.cards.find(value => value.id === card.id);
+          return origin ? { ...card, x: Math.max(16, origin.x + dx), y: Math.max(20, origin.y + dy) } : card;
+        })
+      }));
+    };
+    const up = () => setClusterDrag(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [clusterDrag]);
 
   const visibleCards = useMemo(() => {
     const hidden = new Set<string>();
@@ -310,6 +351,12 @@ export default function Mastermind() {
               <div className="boardGrid" />
               <svg className="connections" width="1100" height="700" aria-hidden="true">
                 <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
+                {wireDrag && (() => {
+                  const source = visibleCards.find(card => card.id === wireDrag.from);
+                  if (!source) return null;
+                  const position = layoutPosition(source);
+                  return <path className="wirePreview" d={`M ${position.x + 232} ${position.y + 78} C ${position.x + 300} ${position.y + 78}, ${wireDrag.x - 68} ${wireDrag.y}, ${wireDrag.x} ${wireDrag.y}`} />;
+                })()}
                 {map.connections.map(connection => {
                   const geometry = connectionGeometry(connection);
                   if (!geometry) return null;
@@ -331,12 +378,16 @@ export default function Mastermind() {
                 ) : (
                   <div key={cluster.id} className={`cluster ${cluster.color}`} style={{ left: minX, top: minY, width: maxX - minX, height: maxY - minY }}>
                     <button onClick={() => toggleCluster(cluster.id)}><span>⌄</span> {cluster.name}<small>{cards.length} cards</small></button>
+                    <button className="clusterMove" aria-label={`Move cluster ${cluster.name}`} title="Move the whole cluster" onPointerDown={event => {
+                      event.stopPropagation();
+                      setClusterDrag({ startX: event.clientX, startY: event.clientY, cards: cards.map(card => ({ id: card.id, x: card.x, y: card.y })) });
+                    }}>✥</button>
                   </div>
                 );
               })}
 
               {visibleCards.map(card => (
-                <article key={card.id} className={`mindCard ${card.color} ${selected.includes(card.id) ? "selected" : ""}`} style={{ transform: `translate(${layoutPosition(card).x}px, ${layoutPosition(card).y}px)` }}>
+                <article key={card.id} data-card-id={card.id} className={`mindCard ${card.color} ${selected.includes(card.id) ? "selected" : ""}`} style={{ transform: `translate(${layoutPosition(card).x}px, ${layoutPosition(card).y}px)` }}>
                   <button className="selectCard" aria-label={`Select ${card.title}`} onClick={() => setSelected(values => values.includes(card.id) ? values.filter(id => id !== card.id) : [...values, card.id])}>{selected.includes(card.id) ? "✓" : ""}</button>
                   <div className="cardDrag" onPointerDown={event => {
                     const rect = (event.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
@@ -353,6 +404,11 @@ export default function Mastermind() {
                     <CardContent card={card} />
                     {(card.comments || []).length > 0 && <span className="commentCount">{card.comments.length} comment{card.comments.length > 1 ? "s" : ""}</span>}
                   </button>
+                  <button className="wirePort" aria-label={`Draw connection from ${card.title}`} title="Drag to another card" onPointerDown={event => {
+                    event.stopPropagation();
+                    const rect = boardRef.current?.getBoundingClientRect();
+                    if (rect) setWireDrag({ from: card.id, x: event.clientX - rect.left, y: event.clientY - rect.top });
+                  }}><span /></button>
                   <span className="fold" />
                 </article>
               ))}
